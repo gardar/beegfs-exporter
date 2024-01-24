@@ -43,7 +43,7 @@ cd beegfs-exporter
 cargo build --release
 ```
 
-### Usage Examples
+### Usage Examples
 
 Run the BeeGFS Exporter with default settings:
 
