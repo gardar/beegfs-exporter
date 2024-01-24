@@ -89,6 +89,7 @@ impl BeeGfsExporter {
             "--nodetype=storage",
             "--history=1",
             "--logEnabled",
+            "--interval=1",
         ];
 
         let mut args: Vec<String> = args.iter().map(|v| v.to_string()).collect();
