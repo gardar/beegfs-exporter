@@ -31,16 +31,6 @@ jobs:
         with:
           cache-on-failure: true
 
-      # Get version from the release tag
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${{ github.ref }}" | sed 's/refs\/tags\/v//g' >> $GITHUB_ENV
-
-      - name: Update Cargo.toml version
-        run: |
-          VERSION=${{ env.VERSION }}
-          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-
       - name: Build binary
         uses: actions-rs/cargo@v1
         with:
@@ -57,10 +47,10 @@ jobs:
             ARCH="arm64"
           fi
           # Create a directory structure inside the tarball
-          PACKAGE_DIR="beegfs_exporter-${{ env.VERSION }}.linux-${ARCH}"
+          PACKAGE_DIR="beegfs_exporter-${{ github.ref_name }}.linux-${ARCH}"
           mkdir -p release/$PACKAGE_DIR
           cp target/${{ matrix.target }}/release/beegfs-exporter release/$PACKAGE_DIR/beegfs_exporter
-          tar -czvf release/beegfs_exporter-${{ env.VERSION }}.linux-${ARCH}.tar.gz -C release $PACKAGE_DIR
+          tar -czvf release/beegfs_exporter-${{ github.ref_name }}.linux-${ARCH}.tar.gz -C release $PACKAGE_DIR
 
       - name: Upload binaries as build artifacts
         uses: actions/upload-artifact@v3
@@ -93,20 +83,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create.outputs.upload_url }}
-          asset_path: ./release/beegfs_exporter-${{ env.VERSION }}.linux-*.tar.gz
-          asset_name: beegfs_exporter-${{ env.VERSION }}.tar.gz
+          asset_path: ./release/beegfs_exporter-${{ github.ref_name }}.linux-*.tar.gz
+          asset_name: beegfs_exporter-${{ github.ref_name }}.tar.gz
           asset_content_type: application/octet-stream
 
-  update_version:
-    needs: release
+  bump-version:
     runs-on: ubuntu-latest
+    name: Update cargo version
     steps:
       - uses: actions/checkout@v4
-
-      - name: Commit version bump in Cargo.toml
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add Cargo.toml
-          git commit -m "chore: bump version in Cargo.toml to ${{ env.VERSION }}"
-          git push origin ${{ github.ref }}
+      - name: Bump version
+        uses: tj-actions/cargo-bump@v3
