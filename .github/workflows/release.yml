@@ -1,0 +1,112 @@
+---
+name: Build and Release Binaries
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+
+      # Set up the Rust toolchain
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      # Cache cargo for faster builds
+      - uses: Swatinem/rust-cache@v1
+        with:
+          cache-on-failure: true
+
+      # Get version from the release tag
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${{ github.ref }}" | sed 's/refs\/tags\/v//g' >> $GITHUB_ENV
+
+      - name: Update Cargo.toml version
+        run: |
+          VERSION=${{ env.VERSION }}
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+
+      - name: Build binary
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target=${{ matrix.target }}
+
+      - name: Packaging
+        run: |
+          mkdir -p release
+          if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]]; then
+            ARCH="amd64"
+          elif [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            ARCH="arm64"
+          fi
+          # Create a directory structure inside the tarball
+          PACKAGE_DIR="beegfs_exporter-${{ env.VERSION }}.linux-${ARCH}"
+          mkdir -p release/$PACKAGE_DIR
+          cp target/${{ matrix.target }}/release/beegfs-exporter release/$PACKAGE_DIR/beegfs_exporter
+          tar -czvf release/beegfs_exporter-${{ env.VERSION }}.linux-${ARCH}.tar.gz -C release $PACKAGE_DIR
+
+      - name: Upload binaries as build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-binaries-${{ matrix.target }}
+          path: release/*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create GitHub release
+        id: create
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload release asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create.outputs.upload_url }}
+          asset_path: ./release/beegfs_exporter-${{ env.VERSION }}.linux-*.tar.gz
+          asset_name: beegfs_exporter-${{ env.VERSION }}.tar.gz
+          asset_content_type: application/octet-stream
+
+  update_version:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Commit version bump in Cargo.toml
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Cargo.toml
+          git commit -m "chore: bump version in Cargo.toml to ${{ env.VERSION }}"
+          git push origin ${{ github.ref }}
