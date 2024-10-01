@@ -67,22 +67,12 @@ jobs:
           path: release/${{ steps.packaging.outputs.PACKAGE }}.tar.gz
 
   release:
+    name: Publish binaries
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download release artifacts
         uses: actions/download-artifact@v3
-
-      - name: Create GitHub release
-        id: create
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: false
-          prerelease: false
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
