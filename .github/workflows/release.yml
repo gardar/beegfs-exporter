@@ -61,7 +61,7 @@ jobs:
           tar -czvf release/${PACKAGE}.tar.gz -C release $PACKAGE
 
       - name: Upload binaries as build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.packaging.outputs.PACKAGE }}
           path: release/${{ steps.packaging.outputs.PACKAGE }}.tar.gz
@@ -72,7 +72,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download release artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          merge-multiple: true
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
@@ -80,7 +83,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: release/beegfs_exporter-${{ github.ref_name }}.*.tar.gz
+          file: binaries/beegfs_exporter-${{ github.ref_name }}.*.tar.gz
           file_glob: true
           tag: ${{ github.ref }}
           overwrite: true
