@@ -92,5 +92,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: release/beegfs_exporter-${{ github.ref_name }}.*.tar.gz
           file_glob: true
-          tag: ${{ github_ref }}
+          tag: ${{ github.ref }}
           overwrite: true
