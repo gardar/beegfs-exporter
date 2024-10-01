@@ -3,14 +3,20 @@ name: Build and Release Binaries
 
 on:
   push:
-    branches:
-      - '**'
     tags:
-      - '**'
-  workflow_dispatch:
+      - '*'
 
 jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    name: Update cargo version
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump version
+        uses: tj-actions/cargo-bump@v3
+
   build:
+    needs: bump-version
     name: Build Binaries
     runs-on: ubuntu-latest
     strategy:
@@ -30,7 +36,7 @@ jobs:
         with:
           cache-on-failure: true
 
-      - name: Build {{ matrix.target }}
+      - name: Build
         uses: ClementTsang/cargo-action@v0.0.3
         with:
           toolchain: 1.79.0
@@ -59,3 +65,32 @@ jobs:
         with:
           name: ${{ steps.packaging.outputs.PACKAGE }}
           path: release/${{ steps.packaging.outputs.PACKAGE }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create GitHub release
+        id: create
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/beegfs_exporter-${{ github.ref_name }}.*.tar.gz
+          file_glob: true
+          tag: ${{ github_ref }}
+          overwrite: true
