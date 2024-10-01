@@ -1,89 +1,39 @@
 ---
-name: Build and Release Binaries
-
+name: Release
 on:
-  push:
-    tags:
-      - '*'
-
+  pull_request_target:
+    types:
+      - closed
 jobs:
-  bump-version:
+  release:
+    if: |
+      github.event.pull_request.merged
     runs-on: ubuntu-latest
-    name: Update cargo version
+    permissions:
+      contents: write
+    name: "Release new version"
     steps:
       - uses: actions/checkout@v4
-      - name: Bump version
+        with:
+          fetch-depth: 0
+
+      - name: "Bump version"
         uses: tj-actions/cargo-bump@v3
 
-  build:
-    needs: bump-version
-    name: Build Binaries
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - aarch64-unknown-linux-gnu
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@master
+      - name: "Write cargo.toml"
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          toolchain: 1.79.0
-          targets: ${{ matrix.target }}
+          branch: ${{ github.event.pull_request.base.ref }}
+          commit_message: "chore: update version"
+          push_options: --force
 
-      - uses: Swatinem/rust-cache@v1
+      - name: "Checkout updated branch"
+        uses: actions/checkout@v4
         with:
-          cache-on-failure: true
+          ref: ${{ github.event.pull_request.base.ref }}
 
-      - name: Build
-        uses: ClementTsang/cargo-action@v0.0.3
-        with:
-          toolchain: 1.79.0
-          use-cross: true
-          command: build
-          args: --release --target=${{ matrix.target }}
-
-      - name: Packaging
-        id: packaging
-        run: |
-          mkdir -p release
-          if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]]; then
-            ARCH="amd64"
-          elif [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
-            ARCH="arm64"
-          fi
-          # Create a directory structure inside the tarball
-          PACKAGE="beegfs_exporter-${{ github.ref_name }}.linux-${ARCH}"
-          echo "PACKAGE=${PACKAGE}" >> $GITHUB_OUTPUT
-          mkdir -p release/$PACKAGE
-          cp target/${{ matrix.target }}/release/beegfs-exporter release/$PACKAGE/beegfs_exporter
-          tar -czvf release/${PACKAGE}.tar.gz -C release $PACKAGE
-
-      - name: Upload binaries as build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.packaging.outputs.PACKAGE }}
-          path: release/${{ steps.packaging.outputs.PACKAGE }}.tar.gz
-
-  release:
-    name: Publish binaries
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download release artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: binaries
-          merge-multiple: true
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
+      - name: "Publish release"
+        id: release-publish
+        uses: release-drafter/release-drafter@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: binaries/beegfs_exporter-${{ github.ref_name }}.*.tar.gz
-          file_glob: true
-          tag: ${{ github.ref }}
-          overwrite: true
