@@ -21,25 +21,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Set up the Rust toolchain
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.79.0
           targets: ${{ matrix.target }}
 
-      # Cache cargo for faster builds
       - uses: Swatinem/rust-cache@v1
         with:
           cache-on-failure: true
 
-      - name: Build binary
-        uses: actions-rs/cargo@v1
+      - name: Build {{ matrix.target }}
+        uses: ClementTsang/cargo-action@v0.0.3
         with:
+          toolchain: 1.79.0
           use-cross: true
           command: build
           args: --release --target=${{ matrix.target }}
 
       - name: Packaging
+        id: packaging
         run: |
           mkdir -p release
           if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]]; then
@@ -48,13 +48,14 @@ jobs:
             ARCH="arm64"
           fi
           # Create a directory structure inside the tarball
-          PACKAGE_DIR="beegfs_exporter-${{ github.ref_name }}.linux-${ARCH}"
-          mkdir -p release/$PACKAGE_DIR
-          cp target/${{ matrix.target }}/release/beegfs-exporter release/$PACKAGE_DIR/beegfs_exporter
-          tar -czvf release/beegfs_exporter-${{ github.ref_name }}.linux-${ARCH}.tar.gz -C release $PACKAGE_DIR
+          PACKAGE="beegfs_exporter-${{ github.ref_name }}.linux-${ARCH}"
+          echo "PACKAGE=${PACKAGE}" >> $GITHUB_OUTPUT
+          mkdir -p release/$PACKAGE
+          cp target/${{ matrix.target }}/release/beegfs-exporter release/$PACKAGE/beegfs_exporter
+          tar -czvf release/${PACKAGE}.tar.gz -C release $PACKAGE
 
       - name: Upload binaries as build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: release-binaries-${{ matrix.target }}
-          path: release/*.tar.gz
+          name: ${{ steps.packaging.outputs.PACKAGE }}
+          path: release/${{ steps.packaging.outputs.PACKAGE }}.tar.gz
