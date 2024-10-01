@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     name: "Release new version"
     steps:
       - uses: actions/checkout@v4
@@ -21,11 +22,12 @@ jobs:
         uses: tj-actions/cargo-bump@v3
 
       - name: "Write cargo.toml"
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          branch: ${{ github.default_branch }}
-          commit_message: "chore: update version"
-          push_options: --force
+        run: |
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git add .
+          git commit -m "chore: update version"
+          git push --force origin HEAD:${{ github.default_branch }}
 
   build:
     name: "Build binaries"
