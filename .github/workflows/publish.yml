@@ -45,7 +45,7 @@ jobs:
           toolchain: 1.79.0
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
