@@ -1,0 +1,20 @@
+---
+name: Release
+on:
+  pull_request_target:
+    types:
+      - closed
+jobs:
+  release:
+    if: |
+      github.event.pull_request.merged
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    name: "Release new version"
+    steps:
+      - name: "Publish release"
+        id: release-publish
+        uses: release-drafter/release-drafter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
