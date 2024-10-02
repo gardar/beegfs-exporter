@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.79"
 clap = { version = "4.5.19", features = ["derive"] }
-ctrlc = "3.4.2"
+ctrlc = "3.4.5"
 libc = "0.2.159"
 prometheus_exporter = "0.8.5"
 regex = "1.11.0"
