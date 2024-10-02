@@ -35,7 +35,7 @@ jobs:
           cache-on-failure: true
 
       - name: "Test build"
-        uses: ClementTsang/cargo-action@v0.0.3
+        uses: ClementTsang/cargo-action@v0.0.6
         with:
           toolchain: 1.79.0
           use-cross: true
